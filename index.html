@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#8b1538">
+  <meta name="description" content="Outil de facturation Altimum Projects & Solutions">
+  <title>Facturation — Altimum</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="blueprint-bg" aria-hidden="true"></div>
+
+  <header class="app-header">
+    <div class="app-header__inner">
+      <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="app-logo">
+      <div class="app-header__title">
+        <span class="eyebrow">Espace de gestion</span>
+        <strong>Facturation</strong>
+      </div>
+      <div class="toolbar" aria-label="Actions du document">
+        <span class="save-status" id="saveStatus" role="status">Prêt</span>
+        <button class="button button--ghost" type="button" id="newInvoice">Nouvelle</button>
+        <button class="button button--ghost" type="button" id="saveInvoice">Enregistrer</button>
+        <button class="button button--ghost button--mail" type="button" id="emailInvoice">Envoyer par email</button>
+        <button class="button button--primary" type="button" id="printInvoice">
+          Imprimer / PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="Navigation de la facturation">
+    <button type="button" class="nav-tab is-active" data-view="statsView">Tableau de bord</button>
+    <button type="button" class="nav-tab" data-view="invoiceView" data-document-mode="invoice">Faire une facture</button>
+    <button type="button" class="nav-tab" data-view="invoiceView" data-document-mode="quote">Faire une offre</button>
+    <button type="button" class="nav-tab" data-view="clientsView">Clients <span id="clientCountBadge">0</span></button>
+    <button type="button" class="nav-tab" data-view="historyView">Historique <span id="invoiceCountBadge">0</span></button>
+  </nav>
+
+  <main class="app-main">
+    <section class="app-view" id="invoiceView" aria-label="Création de facture ou d’offre" hidden>
+      <div class="workspace">
+      <aside class="settings-card" aria-labelledby="settingsTitle">
+      <div>
+        <span class="eyebrow">Paramètres</span>
+        <h1 id="settingsTitle">Préparer la facture</h1>
+        <p id="settingsDescription">Remplissez les champs et ajoutez vos prestations. Les montants se calculent automatiquement.</p>
+      </div>
+
+      <div class="settings-group">
+        <label for="savedClientSelect">Client enregistré</label>
+        <select id="savedClientSelect" name="savedClientSelect">
+          <option value="">Choisir un client…</option>
+        </select>
+      </div>
+
+      <div class="settings-group document-type-control">
+        <label for="documentType">Type de document</label>
+        <select id="documentType" name="documentType">
+          <option value="invoice">Facture</option>
+          <option value="quote">Offre</option>
+        </select>
+      </div>
+
+      <div class="settings-group">
+        <label for="invoiceNumber" id="documentNumberLabel">Numéro de facture</label>
+        <input id="invoiceNumber" name="invoiceNumber" autocomplete="off">
+      </div>
+
+      <div class="settings-grid">
+        <div class="settings-group">
+          <label for="invoiceDate">Date</label>
+          <input type="date" id="invoiceDate" name="invoiceDate">
+        </div>
+        <div class="settings-group invoice-only-setting">
+          <label for="paymentDays">Délai</label>
+          <select id="paymentDays" name="paymentDays">
+            <option value="0">Comptant</option>
+            <option value="7">7 jours</option>
+            <option value="15">15 jours</option>
+            <option value="30" selected>30 jours</option>
+            <option value="45">45 jours</option>
+            <option value="60">60 jours</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-group quote-only-setting" hidden>
+        <label for="quoteIssuer">Offre émise par</label>
+        <input id="quoteIssuer" name="quoteIssuer" value="Alma Angel" autocomplete="off">
+      </div>
+
+      <div class="settings-grid quote-only-setting" hidden>
+        <div class="settings-group">
+          <label for="quoteValidityDays">Validité</label>
+          <select id="quoteValidityDays" name="quoteValidityDays">
+            <option value="15">15 jours</option>
+            <option value="30" selected>30 jours</option>
+            <option value="45">45 jours</option>
+            <option value="60">60 jours</option>
+          </select>
+        </div>
+        <div class="settings-group">
+          <label for="quoteDuration">Durée estimée des travaux</label>
+          <input id="quoteDuration" name="quoteDuration" value="3 semaines" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="settings-group quote-only-setting" hidden>
+        <label for="quoteSubject">Objet de l’offre</label>
+        <textarea id="quoteSubject" name="quoteSubject" rows="3" placeholder="Ex. Nettoyage, sécurisation et remise en état de la toiture"></textarea>
+      </div>
+
+      <div class="settings-group quote-only-setting" hidden>
+        <label for="quoteIntro">Introduction</label>
+        <textarea id="quoteIntro" name="quoteIntro" rows="5" placeholder="Suite à votre demande, nous vous remettons notre meilleure offre…"></textarea>
+      </div>
+
+      <div class="settings-grid">
+        <div class="settings-group">
+          <label for="discountRate">Remise (%)</label>
+          <input type="number" id="discountRate" name="discountRate" min="0" max="100" step="0.01" value="0">
+        </div>
+        <div class="settings-group">
+          <label for="vatRate">TVA (%)</label>
+          <select id="vatRate" name="vatRate">
+            <option value="0">0 %</option>
+            <option value="6">6 %</option>
+            <option value="12">12 %</option>
+            <option value="21" selected>21 %</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tip">
+        <strong>Bon à savoir</strong>
+        <p>Choisissez « Imprimer / PDF », puis « Enregistrer au format PDF » pour créer le document final.</p>
+      </div>
+    </aside>
+
+    <section class="invoice-shell" aria-label="Aperçu et saisie de la facture">
+      <div class="preview-bar" aria-hidden="true">
+        <span><i></i> Aperçu A4 en direct</span>
+        <small>Les modifications sont sauvegardées automatiquement</small>
+      </div>
+      <article class="invoice" id="invoice">
+        <div class="invoice__accent" aria-hidden="true"></div>
+
+        <header class="invoice__header">
+          <div class="company">
+            <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="company__logo">
+            <div class="company__details">
+              <strong>ALTIMUM SRL</strong>
+              <span>Avenue Louise 367</span>
+              <span>1050 Bruxelles, Belgique</span>
+              <span>info@altimum.be · +32 486 27 40 24</span>
+              <span>TVA / BCE : BE 1034.152.335</span>
+            </div>
+          </div>
+
+          <div class="invoice-title">
+            <span id="documentKicker">Document commercial</span>
+            <h2 id="documentTitle">Facture</h2>
+            <strong id="invoiceNumberDisplay">FAC-2026-001</strong>
+          </div>
+        </header>
+
+        <section class="invoice-meta">
+          <div class="client-block">
+            <div class="client-block__head">
+              <span class="section-label" id="clientBlockLabel">Facturé à</span>
+              <button type="button" class="text-button" id="saveClient">Enregistrer ce client</button>
+            </div>
+            <input class="paper-input paper-input--strong" id="clientName" name="clientName" placeholder="Nom du client / société" aria-label="Nom du client ou de la société">
+            <textarea class="paper-input" id="clientAddress" name="clientAddress" rows="2" placeholder="Adresse complète" aria-label="Adresse du client"></textarea>
+            <input class="paper-input" id="clientVat" name="clientVat" placeholder="N° TVA (facultatif)" aria-label="Numéro de TVA du client">
+            <input class="paper-input" type="email" id="clientEmail" name="clientEmail" placeholder="Email (facultatif)" aria-label="Adresse email du client">
+          </div>
+
+          <dl class="date-block">
+            <div>
+              <dt id="dateLabel">Date d’émission</dt>
+              <dd id="invoiceDateDisplay">—</dd>
+            </div>
+            <div>
+              <dt id="dueDateLabel">Date d’échéance</dt>
+              <dd id="dueDateDisplay">—</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="quote-introduction" id="quoteIntroduction" hidden>
+          <p><strong>Objet :</strong> <span id="quoteSubjectDisplay">Votre demande de travaux</span></p>
+          <p>Madame, Monsieur,</p>
+          <p id="quoteIntroDisplay">Suite à votre demande et à l’analyse réalisée, nous vous remettons notre meilleure offre pour l’exécution des travaux décrits ci-dessous.</p>
+          <div class="quote-facts">
+            <span>Offre émise par <strong id="quoteIssuerDisplay">Alma Angel</strong></span>
+            <span>Validité : <strong id="quoteValidityDisplay">30 jours</strong></span>
+            <span>Durée estimée : <strong id="quoteDurationDisplay">3 semaines</strong></span>
+          </div>
+        </section>
+
+        <header class="quote-section-heading" id="quoteSectionHeading" hidden>
+          <span>1</span>
+          <div>
+            <h3>Prestations nécessaires à l’exécution du chantier</h3>
+            <p>Les prestations reprises ci-dessous détaillent les postes prévus dans la présente offre.</p>
+          </div>
+        </header>
+
+        <div class="line-items-wrap">
+          <table class="line-items">
+            <thead>
+              <tr>
+                <th scope="col" id="descriptionColumnLabel">Produit / prestation</th>
+                <th scope="col" class="quote-details-column" id="detailsColumnLabel">Description</th>
+                <th scope="col" class="number-column">Qté</th>
+                <th scope="col" class="number-column" id="priceColumnLabel">Prix unit. HT</th>
+                <th scope="col" class="number-column" id="totalColumnLabel">Total HT</th>
+                <th scope="col" class="action-column"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+
+        <button type="button" class="add-line" id="addLine">
+          <span aria-hidden="true">+</span> <span id="addLineLabel">Ajouter un produit ou une prestation</span>
+        </button>
+
+        <section class="invoice-summary">
+          <div class="notes-block">
+            <label for="invoiceNotes" class="section-label">Notes</label>
+            <textarea class="paper-input" id="invoiceNotes" name="invoiceNotes" rows="3" placeholder="Référence du chantier, conditions ou message au client…"></textarea>
+          </div>
+
+          <dl class="totals">
+            <div>
+              <dt>Sous-total HT</dt>
+              <dd id="subtotalAmount">0,00 €</dd>
+            </div>
+            <div id="discountRow" hidden>
+              <dt id="discountLabel">Remise</dt>
+              <dd id="discountAmount">− 0,00 €</dd>
+            </div>
+            <div>
+              <dt id="vatLabel">TVA 21 %</dt>
+              <dd id="vatAmount">0,00 €</dd>
+            </div>
+            <div class="totals__grand">
+              <dt>Total à payer</dt>
+              <dd id="grandTotal">0,00 €</dd>
+            </div>
+          </dl>
+        </section>
+
+        <footer class="invoice__footer">
+          <p id="documentFooter"><strong>Merci pour votre confiance.</strong><br>Tout paiement est à effectuer selon les modalités convenues avec Altimum SRL.</p>
+          <span>Altimum Projects & Solutions</span>
+        </footer>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="app-view management-view" id="clientsView" aria-labelledby="clientsTitle" hidden>
+      <header class="management-head">
+        <div>
+          <span class="eyebrow">Carnet d’adresses</span>
+          <h2 id="clientsTitle">Clients enregistrés</h2>
+          <p>Retrouvez les coordonnées de vos clients et créez une facture en un clic.</p>
+        </div>
+        <div class="management-actions">
+          <input type="search" class="search-input" id="clientSearch" placeholder="Rechercher un client…" aria-label="Rechercher un client">
+          <button type="button" class="button button--primary" id="addClientFromView">Ajouter un client</button>
+        </div>
+      </header>
+      <div class="empty-state" id="clientsEmpty">
+        <strong>Aucun client enregistré</strong>
+        <p>Remplissez les coordonnées dans une facture, puis choisissez « Enregistrer ce client ».</p>
+      </div>
+      <div class="client-grid" id="clientGrid"></div>
+    </section>
+
+    <section class="app-view management-view" id="historyView" aria-labelledby="historyTitle" hidden>
+      <header class="management-head">
+        <div>
+          <span class="eyebrow">Documents</span>
+          <h2 id="historyTitle">Historique des documents</h2>
+          <p>Ouvrez une facture ou une offre, suivez son statut et exportez toutes les données.</p>
+        </div>
+        <div class="management-actions">
+          <input type="search" class="search-input" id="historySearch" placeholder="N° ou nom du client…" aria-label="Rechercher dans les factures">
+          <button type="button" class="button button--primary" id="exportExcel">Exporter Excel</button>
+        </div>
+      </header>
+      <div class="empty-state" id="historyEmpty">
+        <strong>Aucune facture dans l’historique</strong>
+        <p>Le bouton « Enregistrer » ajoute la facture actuelle à cet historique.</p>
+      </div>
+      <div class="history-table-wrap" id="historyTableWrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Client</th>
+              <th>Date</th>
+              <th>Échéance</th>
+              <th>Total TTC</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="app-view management-view is-active" id="statsView" aria-labelledby="statsTitle">
+      <header class="management-head">
+        <div>
+          <span class="eyebrow">Vue d’ensemble</span>
+          <h2 id="statsTitle">Tableau de bord</h2>
+          <p>Suivez la facturation, les paiements et les offres depuis un seul écran.</p>
+        </div>
+        <button type="button" class="button button--primary" id="exportExcelStats">Exporter Excel</button>
+      </header>
+      <div class="stats-grid">
+        <article class="stat-card stat-card--accent">
+          <span>Chiffre d’affaires du mois</span>
+          <strong id="statRevenue">0,00 €</strong>
+          <small id="statRevenueSub">Mois en cours</small>
+        </article>
+        <article class="stat-card">
+          <span>Factures payées</span>
+          <strong id="statPaidCount">0</strong>
+          <small id="statPaidAmount">0,00 € encaissé</small>
+        </article>
+        <article class="stat-card">
+          <span>Factures en attente</span>
+          <strong id="statPendingCount">0</strong>
+          <small id="statPendingAmount">0,00 € à recevoir</small>
+        </article>
+        <article class="stat-card">
+          <span>Factures en retard</span>
+          <strong id="statOverdueCount">0</strong>
+          <small id="statOverdueAmount">0,00 € en retard</small>
+        </article>
+        <article class="stat-card">
+          <span>Offres envoyées</span>
+          <strong id="statQuoteCount">0</strong>
+          <small id="statQuoteAmount">0,00 € proposés</small>
+        </article>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">
+          <div>
+            <span class="eyebrow">Évolution</span>
+            <h3>Facturation mensuelle TTC</h3>
+          </div>
+          <span id="chartYear"></span>
+        </div>
+        <div class="monthly-chart" id="monthlyChart" aria-label="Graphique de la facturation mensuelle"></div>
+      </div>
+      <div class="stats-lower">
+        <article class="summary-card">
+          <h3>Répartition des factures</h3>
+          <div class="payment-summary status-chart" id="paymentSummary"></div>
+        </article>
+        <article class="summary-card">
+          <h3>Meilleurs clients</h3>
+          <div class="top-clients" id="topClients"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <template id="lineItemTemplate">
+    <tr class="line-item">
+      <td data-label="Produit / prestation">
+        <textarea class="item-description" rows="2" placeholder="Ex. Travaux de rénovation" aria-label="Description du produit ou de la prestation"></textarea>
+      </td>
+      <td class="quote-details-cell" data-label="Description">
+        <textarea class="item-details" rows="4" placeholder="Décrivez précisément les travaux, matériaux et conditions…" aria-label="Description détaillée du poste"></textarea>
+      </td>
+      <td data-label="Quantité">
+        <input class="item-quantity" type="number" min="0" step="0.01" value="1" inputmode="decimal" aria-label="Quantité">
+      </td>
+      <td data-label="Prix unit. HT">
+        <div class="money-input">
+          <input class="item-price" type="number" min="0" step="0.01" value="0" inputmode="decimal" aria-label="Prix unitaire hors TVA">
+          <span>€</span>
+        </div>
+      </td>
+      <td data-label="Total HT" class="item-total">0,00 €</td>
+      <td class="line-action">
+        <button type="button" class="remove-line" title="Supprimer cette ligne" aria-label="Supprimer cette ligne">×</button>
+      </td>
+    </tr>
+  </template>
+</body>
+</html>

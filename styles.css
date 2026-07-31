@@ -469,7 +469,7 @@ select:focus-visible {
   min-height: 0;
   overflow: hidden;
   padding: 58px 64px 198px;
-  background: #fff url("assets/letterhead-bg.png") top center / 100% auto repeat-y;
+  background: #fff url("assets/letterhead-bg.png?v=20260731-2") top center / 100% auto repeat-y;
   border: 1px solid rgba(139, 21, 56, 0.08);
   border-radius: 0 0 8px 8px;
   box-shadow: var(--shadow);
@@ -1936,7 +1936,7 @@ textarea.paper-input,
     aspect-ratio: auto;
     overflow: hidden;
     padding: 14mm 16mm 49mm;
-    background: #fff url("assets/letterhead-bg.png") top center / 210mm 297mm repeat-y;
+    background: #fff url("assets/letterhead-bg.png?v=20260731-2") top center / 210mm 297mm repeat-y;
     border: 0;
     border-radius: 0;
     box-shadow: none;

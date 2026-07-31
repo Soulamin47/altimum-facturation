@@ -66,7 +66,8 @@
 
       <div class="settings-group">
         <label for="invoiceNumber" id="documentNumberLabel">Numéro de facture</label>
-        <input id="invoiceNumber" name="invoiceNumber" autocomplete="off">
+        <input id="invoiceNumber" name="invoiceNumber" autocomplete="off" readonly aria-describedby="numberingHelp">
+        <small class="field-help" id="numberingHelp">Numéro attribué automatiquement pour éviter les doublons.</small>
       </div>
 
       <div class="settings-grid">
@@ -118,6 +119,32 @@
         <textarea id="quoteIntro" name="quoteIntro" rows="5" placeholder="Suite à votre demande, nous vous remettons notre meilleure offre…"></textarea>
       </div>
 
+      <div class="settings-group quote-only-setting" hidden>
+        <label for="quoteActiveSection">Section à modifier</label>
+        <select id="quoteActiveSection" name="quoteActiveSection">
+          <option value="section-1">1. Prestations nécessaires</option>
+        </select>
+      </div>
+
+      <div class="settings-group quote-only-setting" hidden>
+        <label for="quoteContentMode">Présentation des prestations</label>
+        <select id="quoteContentMode" name="quoteContentMode">
+          <option value="table">Tableau ligne par ligne</option>
+          <option value="free">Bloc de texte libre</option>
+          <option value="both">Texte libre et tableau</option>
+        </select>
+      </div>
+
+      <div class="settings-group quote-only-setting quote-free-setting" hidden>
+        <label for="quoteFreeText">Texte libre de l’offre</label>
+        <textarea id="quoteFreeText" name="quoteFreeText" rows="12" placeholder="Collez ici votre texte structuré. Les titres, paragraphes et retours à la ligne seront conservés."></textarea>
+      </div>
+
+      <div class="settings-group quote-only-setting quote-free-amount-setting" hidden>
+        <label for="quoteFreeAmount">Montant total HTVA de l’offre</label>
+        <input type="number" id="quoteFreeAmount" name="quoteFreeAmount" min="0" step="0.01" value="0" inputmode="decimal">
+      </div>
+
       <div class="settings-grid">
         <div class="settings-group">
           <label for="discountRate">Remise (%)</label>
@@ -138,6 +165,11 @@
         <strong>Bon à savoir</strong>
         <p>Choisissez « Imprimer / PDF », puis « Enregistrer au format PDF » pour créer le document final.</p>
       </div>
+
+      <div class="tip tip--warning" id="numberingWarning">
+        <strong>Mode de vérification</strong>
+        <p>La numérotation est protégée sur cet appareil. Une base de données centrale devra être activée avant l’utilisation fiscale sur plusieurs appareils.</p>
+      </div>
     </aside>
 
     <section class="invoice-shell" aria-label="Aperçu et saisie de la facture">
@@ -152,11 +184,10 @@
           <div class="company">
             <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="company__logo">
             <div class="company__details">
-              <strong>ALTIMUM SRL</strong>
-              <span>Avenue Louise 367</span>
-              <span>1050 Bruxelles, Belgique</span>
+              <span>Rue des Anciens Étangs 40</span>
+              <span>1190 Forest, Belgique</span>
               <span>info@altimum.be · +32 486 27 40 24</span>
-              <span>TVA / BCE : BE 1034.152.335</span>
+              <span>IBAN : BE83 6451 1058 7715</span>
             </div>
           </div>
 
@@ -210,7 +241,11 @@
           </div>
         </header>
 
-        <div class="line-items-wrap">
+        <section class="quote-free-content" id="quoteFreeContent" hidden>
+          <div id="quoteFreeTextDisplay"></div>
+        </section>
+
+        <div class="line-items-wrap" id="lineItemsWrap">
           <table class="line-items">
             <thead>
               <tr>
@@ -228,6 +263,10 @@
 
         <button type="button" class="add-line" id="addLine">
           <span aria-hidden="true">+</span> <span id="addLineLabel">Ajouter un produit ou une prestation</span>
+        </button>
+
+        <button type="button" class="add-line add-section quote-only-setting" id="addSection" hidden>
+          <span aria-hidden="true">+</span> Ajouter une section de prestations
         </button>
 
         <section class="invoice-summary">
@@ -254,6 +293,12 @@
               <dd id="grandTotal">0,00 €</dd>
             </div>
           </dl>
+        </section>
+
+        <section class="legal-details" aria-label="Mentions légales Altimum">
+          <strong>ALTIMUM SRL — BCE 1034.152.335 — TVA BE 1034.152.335</strong>
+          <span>IBAN : BE83 6451 1058 7715</span>
+          <p id="vatZeroNotice" hidden>TVA à acquitter par le cocontractant — Article 20 de l'AR n°1 — Autoliquidation</p>
         </section>
 
         <footer class="invoice__footer">
@@ -397,6 +442,18 @@
       <td data-label="Total HT" class="item-total">0,00 €</td>
       <td class="line-action">
         <button type="button" class="remove-line" title="Supprimer cette ligne" aria-label="Supprimer cette ligne">×</button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="serviceSectionTemplate">
+    <tr class="service-section-row">
+      <td colspan="6">
+        <div class="service-section-heading">
+          <span class="service-section-number">2</span>
+          <textarea class="service-section-title" rows="1" placeholder="Ex. Étanchéité, isolation, finitions…" aria-label="Titre de la section de prestations"></textarea>
+          <button type="button" class="remove-section" title="Supprimer cette section" aria-label="Supprimer cette section">×</button>
+        </div>
       </td>
     </tr>
   </template>

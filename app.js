@@ -22,18 +22,25 @@
   });
   const shortDateFormatter = new Intl.DateTimeFormat("fr-BE");
   const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+  const DEFAULT_SERVICE_SECTION_TITLE = "Prestations nécessaires à l’exécution du chantier";
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
     itemsBody: $("#itemsBody"),
     itemTemplate: $("#lineItemTemplate"),
+    serviceSectionTemplate: $("#serviceSectionTemplate"),
     addLine: $("#addLine"),
+    addSection: $("#addSection"),
     addLineLabel: $("#addLineLabel"),
     newInvoice: $("#newInvoice"),
     saveInvoice: $("#saveInvoice"),
     emailInvoice: $("#emailInvoice"),
     printInvoice: $("#printInvoice"),
     invoice: $("#invoice"),
+    invoiceShell: $(".invoice-shell"),
+    invoiceSummary: $(".invoice-summary"),
+    legalDetails: $(".legal-details"),
+    invoiceFooter: $(".invoice__footer"),
     saveClient: $("#saveClient"),
     savedClientSelect: $("#savedClientSelect"),
     saveStatus: $("#saveStatus"),
@@ -68,8 +75,15 @@
     quoteDuration: $("#quoteDuration"),
     quoteSubject: $("#quoteSubject"),
     quoteIntro: $("#quoteIntro"),
+    quoteActiveSection: $("#quoteActiveSection"),
+    quoteContentMode: $("#quoteContentMode"),
+    quoteFreeText: $("#quoteFreeText"),
+    quoteFreeAmount: $("#quoteFreeAmount"),
     quoteIntroduction: $("#quoteIntroduction"),
     quoteSectionHeading: $("#quoteSectionHeading"),
+    quoteFreeContent: $("#quoteFreeContent"),
+    quoteFreeTextDisplay: $("#quoteFreeTextDisplay"),
+    lineItemsWrap: $("#lineItemsWrap"),
     quoteIssuerDisplay: $("#quoteIssuerDisplay"),
     quoteValidityDisplay: $("#quoteValidityDisplay"),
     quoteDurationDisplay: $("#quoteDurationDisplay"),
@@ -81,6 +95,7 @@
     discountAmount: $("#discountAmount"),
     vatLabel: $("#vatLabel"),
     vatAmount: $("#vatAmount"),
+    vatZeroNotice: $("#vatZeroNotice"),
     grandTotal: $("#grandTotal"),
     clientCountBadge: $("#clientCountBadge"),
     invoiceCountBadge: $("#invoiceCountBadge"),
@@ -112,10 +127,20 @@
 
   let clients = readCollection(STORAGE.clients);
   let invoices = readCollection(STORAGE.invoices);
+  let quoteSections = [{
+    id: "section-1",
+    title: DEFAULT_SERVICE_SECTION_TITLE,
+    mode: "table",
+    freeText: "",
+    freeAmount: "0"
+  }];
   let currentInvoiceId = null;
   let currentClientId = null;
   let saveTimer;
   let statusTimer;
+  let paginationFrame;
+  let isPaginating = false;
+  let isPrinting = false;
 
   function readCollection(key) {
     try {
@@ -177,16 +202,52 @@
     return toIsoDate(date);
   }
 
-  function generateInvoiceNumber() {
+  function getDocumentPrefix(mode) {
+    return mode === "quote" ? "OFFRE" : "FACT";
+  }
+
+  function getCounterKey(mode) {
+    return mode === "quote" ? STORAGE.quoteCounter : STORAGE.counter;
+  }
+
+  function getNextLocalSequence(mode, year = new Date().getFullYear()) {
+    const prefix = getDocumentPrefix(mode);
+    const pattern = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+    const historyMaximum = invoices.reduce((maximum, document) => {
+      if (document.documentType !== mode) return maximum;
+      const match = String(document.invoiceNumber || "").match(pattern);
+      return match ? Math.max(maximum, Number.parseInt(match[1], 10) || 0) : maximum;
+    }, 0);
+    const storedNext = Number.parseInt(localStorage.getItem(getCounterKey(mode)), 10) || 1;
+    return Math.max(1, storedNext, historyMaximum + 1);
+  }
+
+  function formatDocumentNumber(mode, year, sequence) {
+    return `${getDocumentPrefix(mode)}-${year}-${String(sequence).padStart(3, "0")}`;
+  }
+
+  function generateDocumentNumber(mode, { reserve = false } = {}) {
     const year = new Date().getFullYear();
-    const counter = Math.max(1, Number.parseInt(localStorage.getItem(STORAGE.counter), 10) || 1);
-    return `FAC-${year}-${String(counter).padStart(3, "0")}`;
+    const sequence = getNextLocalSequence(mode, year);
+    if (reserve) localStorage.setItem(getCounterKey(mode), String(sequence + 1));
+    return formatDocumentNumber(mode, year, sequence);
+  }
+
+  function generateInvoiceNumber() {
+    return generateDocumentNumber("invoice");
   }
 
   function generateQuoteNumber() {
-    const now = new Date();
-    const counter = Math.max(1, Number.parseInt(localStorage.getItem(STORAGE.quoteCounter), 10) || 1);
-    return `ALT-${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}${String(counter).padStart(3, "0")}`;
+    return generateDocumentNumber("quote");
+  }
+
+  function advanceLocalCounter(mode, documentNumber) {
+    const match = String(documentNumber || "").match(/^(FACT|OFFRE)-(\d{4})-(\d+)$/);
+    if (!match || match[1] !== getDocumentPrefix(mode)) return;
+    const nextSequence = Number.parseInt(match[3], 10) + 1;
+    const counterKey = getCounterKey(mode);
+    const storedNext = Number.parseInt(localStorage.getItem(counterKey), 10) || 1;
+    localStorage.setItem(counterKey, String(Math.max(storedNext, nextSequence)));
   }
 
   function announce(message, duration = 1800) {
@@ -197,41 +258,467 @@
     }, duration);
   }
 
+  function autoGrowTextarea(textarea) {
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 42)}px`;
+  }
+
+  function resizeAllTextareas() {
+    document.querySelectorAll("textarea").forEach(autoGrowTextarea);
+  }
+
+  function renderTextBlocks(container, value) {
+    container.textContent = "";
+    const blocks = String(value || "")
+      .replaceAll("\r\n", "\n")
+      .split(/\n\s*\n/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+    blocks.forEach((block) => {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = block;
+      container.appendChild(paragraph);
+    });
+  }
+
+  function appendDocumentTail(page) {
+    page.append(
+      elements.addLine,
+      elements.addSection,
+      elements.invoiceSummary,
+      elements.invoiceFooter
+    );
+  }
+
+  function createRepeatedLegalDetails() {
+    const legalDetails = elements.legalDetails.cloneNode(true);
+    legalDetails.classList.add("legal-details--repeated");
+    legalDetails.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+    return legalDetails;
+  }
+
+  function resetPagination() {
+    const flowRows = getAllFlowRows();
+    const freeTextParagraphs = [...elements.invoiceShell.querySelectorAll(".quote-free-content:not(.service-section-free-content) p")];
+    flowRows.forEach((row) => elements.itemsBody.appendChild(row));
+    freeTextParagraphs.forEach((paragraph) => elements.quoteFreeTextDisplay.appendChild(paragraph));
+    appendDocumentTail(elements.invoice);
+    elements.invoice.appendChild(elements.legalDetails);
+    elements.invoiceShell.querySelectorAll(".invoice--continuation").forEach((page) => page.remove());
+    elements.invoice.classList.remove("has-continuation");
+    renumberServiceSections();
+  }
+
+  function createContinuationPage(pageNumber) {
+    const page = document.createElement("article");
+    page.className = `invoice invoice--continuation${elements.invoice.classList.contains("is-quote") ? " is-quote" : ""}`;
+    page.setAttribute("aria-label", `${elements.documentTitle.textContent} — page ${pageNumber}`);
+
+    const continuationHeader = document.createElement("header");
+    continuationHeader.className = "continuation-header";
+    const continuationTitle = document.createElement("div");
+    continuationTitle.innerHTML = `<span>${escapeHtml(elements.documentTitle.textContent)} — suite</span><strong>${escapeHtml(elements.invoiceNumberDisplay.textContent)}</strong>`;
+    const pageLabel = document.createElement("small");
+    pageLabel.textContent = `Page ${pageNumber}`;
+    continuationHeader.append(continuationTitle, pageLabel);
+
+    const freeContent = document.createElement("section");
+    freeContent.className = "quote-free-content continuation-free-content";
+    freeContent.hidden = true;
+    const freeTextDisplay = document.createElement("div");
+    freeContent.appendChild(freeTextDisplay);
+
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "line-items-wrap continuation-items-wrap";
+    tableWrap.hidden = true;
+    const table = document.createElement("table");
+    table.className = "line-items";
+    const head = elements.lineItemsWrap.querySelector("thead").cloneNode(true);
+    head.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+    const body = document.createElement("tbody");
+    table.append(head, body);
+    tableWrap.appendChild(table);
+
+    page.append(continuationHeader, freeContent, tableWrap, createRepeatedLegalDetails());
+    elements.invoiceShell.appendChild(page);
+    return { page, freeContent, freeTextDisplay, tableWrap, body };
+  }
+
+  function pageOverflows(page) {
+    return page.scrollHeight > page.clientHeight + 2;
+  }
+
+  function captureEditorFocus() {
+    const activeElement = document.activeElement;
+    if (!activeElement || !elements.invoiceShell.contains(activeElement)) return null;
+    const supportsSelection = typeof activeElement.selectionStart === "number";
+    return {
+      element: activeElement,
+      selectionStart: supportsSelection ? activeElement.selectionStart : null,
+      selectionEnd: supportsSelection ? activeElement.selectionEnd : null
+    };
+  }
+
+  function restoreEditorFocus(focusState) {
+    if (!focusState?.element?.isConnected) return;
+    focusState.element.focus({ preventScroll: true });
+    if (focusState.selectionStart === null) return;
+    try {
+      focusState.element.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
+    } catch {
+      // Some form controls expose selectionStart without supporting setSelectionRange.
+    }
+  }
+
+  function pageHasMovableFlow(page) {
+    const parts = getPageFlowParts(page);
+    return Boolean(
+      (!parts.tableWrap?.hidden && parts.body?.children.length) ||
+      (!parts.freeContent?.hidden && parts.freeTextDisplay?.children.length)
+    );
+  }
+
+  function getPageFlowParts(page) {
+    return {
+      freeContent: page.querySelector(".quote-free-content"),
+      freeTextDisplay: page.querySelector(".quote-free-content > div"),
+      tableWrap: page.querySelector(".line-items-wrap"),
+      body: page.querySelector(".line-items tbody")
+    };
+  }
+
+  function syncContinuationVisibility(page) {
+    if (!page.classList.contains("invoice--continuation")) return;
+    const parts = getPageFlowParts(page);
+    parts.freeContent.hidden = !parts.freeTextDisplay?.children.length;
+    parts.tableWrap.hidden = !parts.body?.children.length;
+  }
+
+  function moveLastFlowBlock(fromPage, toPage) {
+    const from = getPageFlowParts(fromPage);
+    const to = getPageFlowParts(toPage);
+    const lastTableRow = from.body?.lastElementChild;
+    if (lastTableRow && !from.tableWrap.hidden) {
+      to.body.prepend(lastTableRow);
+      syncContinuationVisibility(toPage);
+      return true;
+    }
+    const lastParagraph = from.freeTextDisplay?.lastElementChild;
+    if (lastParagraph && !from.freeContent.hidden) {
+      to.freeTextDisplay.prepend(lastParagraph);
+      syncContinuationVisibility(toPage);
+      return true;
+    }
+    return false;
+  }
+
+  function moveOrphanSectionHeading(fromPage, toPage) {
+    const fromBody = getPageFlowParts(fromPage).body;
+    const lastRow = fromBody?.lastElementChild;
+    if (lastRow?.classList.contains("service-section-row")) {
+      getPageFlowParts(toPage).body.prepend(lastRow);
+      syncContinuationVisibility(toPage);
+    }
+  }
+
+  function paginateDocument() {
+    if (isPaginating) return;
+    isPaginating = true;
+    const focusState = captureEditorFocus();
+    resetPagination();
+
+    const compactLayout = !isPrinting && window.matchMedia("(max-width: 760px)").matches;
+    const invoiceViewHidden = elements.invoice.closest(".app-view")?.hidden;
+    if (compactLayout || invoiceViewHidden) {
+      isPaginating = false;
+      restoreEditorFocus(focusState);
+      return;
+    }
+
+    elements.invoice.classList.add("has-continuation");
+    let currentPage = elements.invoice;
+    let pageNumber = 1;
+    let safety = 0;
+
+    while (pageOverflows(currentPage) && safety < 20) {
+      if (!pageHasMovableFlow(currentPage)) break;
+      pageNumber += 1;
+      const continuation = createContinuationPage(pageNumber);
+      appendDocumentTail(continuation.page);
+
+      while (pageOverflows(currentPage) && moveLastFlowBlock(currentPage, continuation.page)) {
+        // Move complete prestations or paragraphs until the current A4 page fits.
+      }
+      moveOrphanSectionHeading(currentPage, continuation.page);
+      syncContinuationVisibility(currentPage);
+      syncContinuationVisibility(continuation.page);
+      currentPage = continuation.page;
+      safety += 1;
+    }
+
+    if (!elements.invoiceShell.querySelector(".invoice--continuation")) {
+      elements.invoice.classList.remove("has-continuation");
+    }
+    renumberServiceSections();
+    isPaginating = false;
+    restoreEditorFocus(focusState);
+  }
+
+  function schedulePagination() {
+    if (isPrinting) return;
+    window.cancelAnimationFrame(paginationFrame);
+    paginationFrame = window.requestAnimationFrame(paginateDocument);
+  }
+
+  function getQuoteSection(sectionId) {
+    return quoteSections.find((section) => section.id === sectionId) || quoteSections[0];
+  }
+
+  function getActiveQuoteSection() {
+    return getQuoteSection(elements.quoteActiveSection.value || "section-1");
+  }
+
+  function refreshQuoteSectionSelector(preferredId = elements.quoteActiveSection.value) {
+    elements.quoteActiveSection.innerHTML = quoteSections.map((section, index) =>
+      `<option value="${escapeHtml(section.id)}">${index + 1}. ${escapeHtml(section.title || `Section ${index + 1}`)}</option>`
+    ).join("");
+    const selectedId = quoteSections.some((section) => section.id === preferredId)
+      ? preferredId
+      : quoteSections[0].id;
+    elements.quoteActiveSection.value = selectedId;
+  }
+
+  function loadActiveSectionControls() {
+    const section = getActiveQuoteSection();
+    elements.quoteContentMode.value = section.mode || "table";
+    elements.quoteFreeText.value = section.freeText || "";
+    elements.quoteFreeAmount.value = section.freeAmount ?? "0";
+    autoGrowTextarea(elements.quoteFreeText);
+  }
+
+  function syncActiveSectionFromControls() {
+    const section = getActiveQuoteSection();
+    section.mode = elements.quoteContentMode.value || "table";
+    section.freeText = elements.quoteFreeText.value;
+    section.freeAmount = elements.quoteFreeAmount.value;
+  }
+
+  function createServiceSectionFreeRow(sectionId) {
+    const freeRow = document.createElement("tr");
+    freeRow.className = "service-section-free-text-row";
+    freeRow.dataset.sectionId = sectionId;
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    const content = document.createElement("section");
+    content.className = "quote-free-content service-section-free-content";
+    const display = document.createElement("div");
+    content.appendChild(display);
+    cell.appendChild(content);
+    freeRow.appendChild(cell);
+    return freeRow;
+  }
+
+  function renderOfferSections() {
+    resetPagination();
+    const isQuote = elements.documentType.value === "quote";
+    const firstSection = quoteSections[0];
+    renderTextBlocks(elements.quoteFreeTextDisplay, firstSection.freeText);
+    elements.quoteFreeContent.hidden = !isQuote || firstSection.mode === "table";
+
+    elements.itemsBody.querySelectorAll(".service-section-row").forEach((row) => {
+      const section = getQuoteSection(row.dataset.sectionId);
+      row.classList.toggle("is-active-section", section.id === elements.quoteActiveSection.value);
+      const titleField = row.querySelector(".service-section-title");
+      if (titleField.value !== section.title) titleField.value = section.title;
+      let freeRow = row.nextElementSibling;
+      if (!freeRow?.classList.contains("service-section-free-text-row")) {
+        freeRow = createServiceSectionFreeRow(section.id);
+        row.after(freeRow);
+      }
+      freeRow.dataset.sectionId = section.id;
+      renderTextBlocks(freeRow.querySelector(".service-section-free-content > div"), section.freeText);
+      freeRow.hidden = !isQuote || section.mode === "table";
+    });
+
+    elements.itemsBody.querySelectorAll(".line-item").forEach((row) => {
+      const section = getQuoteSection(row.dataset.sectionId);
+      row.hidden = isQuote && section.mode === "free";
+    });
+
+    const visibleTableLines = [...elements.itemsBody.querySelectorAll(".line-item")].some((row) => !row.hidden);
+    const hasAdditionalSections = quoteSections.length > 1;
+    elements.lineItemsWrap.hidden = isQuote && !visibleTableLines && !hasAdditionalSections;
+    elements.lineItemsWrap.querySelector("thead").hidden = isQuote && !visibleTableLines;
+
+    const activeSection = getActiveQuoteSection();
+    const activeShowsFreeText = isQuote && activeSection.mode !== "table";
+    document.querySelectorAll(".quote-free-setting").forEach((element) => {
+      element.hidden = !activeShowsFreeText;
+    });
+    document.querySelectorAll(".quote-free-amount-setting").forEach((element) => {
+      element.hidden = !(isQuote && activeSection.mode === "free");
+    });
+    elements.addLine.hidden = isQuote && activeSection.mode === "free";
+    elements.addSection.hidden = !isQuote;
+    resizeAllTextareas();
+    schedulePagination();
+  }
+
   function createLine(item = {}) {
     const fragment = elements.itemTemplate.content.cloneNode(true);
     const row = fragment.querySelector(".line-item");
+    const sectionId = item.sectionId || elements.quoteActiveSection.value || "section-1";
+    row.dataset.sectionId = sectionId;
     row.querySelector(".item-description").value = item.description || "";
     row.querySelector(".item-details").value = item.details || "";
     row.querySelector(".item-quantity").value = item.quantity ?? 1;
     row.querySelector(".item-price").value = item.price ?? 0;
 
     row.addEventListener("input", () => {
+      autoGrowTextarea(row.querySelector(".item-description"));
+      autoGrowTextarea(row.querySelector(".item-details"));
       calculate();
       scheduleDraftSave();
+      schedulePagination();
     });
     row.querySelector(".remove-line").addEventListener("click", () => {
       row.remove();
-      if (!elements.itemsBody.children.length) createLine();
+      if (!elements.invoiceShell.querySelector(".line-item")) createLine();
+      renumberServiceSections();
       calculate();
       scheduleDraftSave();
+      schedulePagination();
     });
 
-    elements.itemsBody.appendChild(fragment);
+    const currentSectionRow = elements.itemsBody.querySelector(`.service-section-row[data-section-id="${sectionId}"]`);
+    const nextSectionRow = currentSectionRow
+      ? [...elements.itemsBody.querySelectorAll(".service-section-row")].find((sectionRow) =>
+          Boolean(currentSectionRow.compareDocumentPosition(sectionRow) & Node.DOCUMENT_POSITION_FOLLOWING)
+        )
+      : elements.itemsBody.querySelector(".service-section-row");
+    elements.itemsBody.insertBefore(fragment, nextSectionRow || null);
+    autoGrowTextarea(row.querySelector(".item-description"));
+    autoGrowTextarea(row.querySelector(".item-details"));
     calculate();
+    return row;
+  }
+
+  function renumberServiceSections() {
+    const firstSection = quoteSections.find((section) => section.id === "section-1") || quoteSections[0];
+    const orderedSections = [firstSection];
+    const renderedSectionIds = new Set([firstSection.id]);
+    elements.invoiceShell.querySelectorAll(".service-section-row").forEach((row, index) => {
+      row.querySelector(".service-section-number").textContent = String(index + 2);
+      const section = getQuoteSection(row.dataset.sectionId);
+      section.title = row.querySelector(".service-section-title").value.trim() || `Section ${index + 2}`;
+      orderedSections.push(section);
+      renderedSectionIds.add(section.id);
+    });
+    quoteSections.forEach((section) => {
+      if (!renderedSectionIds.has(section.id)) orderedSections.push(section);
+    });
+    quoteSections = orderedSections;
+    refreshQuoteSectionSelector();
+  }
+
+  function createServiceSection(title = "", sectionItems = [{ quantity: 1, price: 0 }], sectionData = null) {
+    const section = sectionData || {
+      id: makeId("section"),
+      title: title || `Section ${quoteSections.length + 1}`,
+      mode: "table",
+      freeText: "",
+      freeAmount: "0"
+    };
+    if (!quoteSections.some((item) => item.id === section.id)) quoteSections.push(section);
+    const fragment = elements.serviceSectionTemplate.content.cloneNode(true);
+    const row = fragment.querySelector(".service-section-row");
+    row.dataset.sectionId = section.id;
+    const titleField = row.querySelector(".service-section-title");
+    titleField.value = section.title;
+    titleField.addEventListener("focus", () => {
+      refreshQuoteSectionSelector(section.id);
+      loadActiveSectionControls();
+      elements.itemsBody.querySelectorAll(".service-section-row").forEach((sectionRow) => {
+        sectionRow.classList.toggle("is-active-section", sectionRow === row);
+      });
+    });
+    titleField.addEventListener("input", () => {
+      section.title = titleField.value.trim() || `Section ${quoteSections.indexOf(section) + 1}`;
+      autoGrowTextarea(titleField);
+      refreshQuoteSectionSelector(section.id);
+      scheduleDraftSave();
+      schedulePagination();
+    });
+    row.querySelector(".remove-section").addEventListener("click", () => {
+      if (!window.confirm("Supprimer cette section et toutes ses prestations ?")) return;
+      let nextRow = row.nextElementSibling;
+      while (nextRow && !nextRow.classList.contains("service-section-row")) {
+        const rowToRemove = nextRow;
+        nextRow = nextRow.nextElementSibling;
+        rowToRemove.remove();
+      }
+      row.remove();
+      quoteSections = quoteSections.filter((item) => item.id !== section.id);
+      elements.quoteActiveSection.value = "section-1";
+      if (!elements.invoiceShell.querySelector(".line-item")) createLine();
+      renumberServiceSections();
+      loadActiveSectionControls();
+      renderOfferSections();
+      calculate();
+      scheduleDraftSave();
+      schedulePagination();
+    });
+    elements.itemsBody.appendChild(fragment);
+    elements.itemsBody.appendChild(createServiceSectionFreeRow(section.id));
+    autoGrowTextarea(titleField);
+    sectionItems.forEach((item) => createLine({ ...item, sectionId: section.id }));
+    renumberServiceSections();
+    renderOfferSections();
+    schedulePagination();
+  }
+
+  function getAllFlowRows() {
+    return [...elements.invoiceShell.querySelectorAll(".service-section-row, .service-section-free-text-row, .line-item")];
   }
 
   function getItems() {
-    return [...elements.itemsBody.querySelectorAll(".line-item")].map((row) => ({
-      description: row.querySelector(".item-description").value.trim(),
-      details: row.querySelector(".item-details").value.trim(),
-      quantity: toNumber(row.querySelector(".item-quantity").value),
-      price: toNumber(row.querySelector(".item-price").value)
-    }));
+    return getAllFlowRows().flatMap((row) => {
+      if (!row.classList.contains("line-item")) return [];
+      const section = getQuoteSection(row.dataset.sectionId);
+      const sectionIndex = Math.max(1, quoteSections.findIndex((item) => item.id === section.id) + 1);
+      return [{
+        description: row.querySelector(".item-description").value.trim(),
+        details: row.querySelector(".item-details").value.trim(),
+        quantity: toNumber(row.querySelector(".item-quantity").value),
+        price: toNumber(row.querySelector(".item-price").value),
+        sectionId: section.id,
+        sectionIndex,
+        sectionTitle: section.title
+      }];
+    });
   }
 
   function getTotals(state = null) {
     const items = state?.items || getItems();
-    const subtotal = items.reduce((sum, item) => sum + toNumber(item.quantity) * toNumber(item.price), 0);
+    const documentType = state?.documentType ?? elements.documentType.value;
+    const sections = state
+      ? (state.quoteSections?.length ? state.quoteSections : [{
+          id: "section-1",
+          mode: state.quoteContentMode || "table",
+          freeAmount: state.quoteFreeAmount ?? "0"
+        }])
+      : quoteSections;
+    const subtotal = documentType === "quote"
+      ? sections.reduce((sum, section) => {
+          if (section.mode === "free") return sum + toNumber(section.freeAmount);
+          return sum + items
+            .filter((item) => (item.sectionId || "section-1") === section.id)
+            .reduce((sectionSum, item) =>
+              sectionSum + toNumber(item.quantity) * toNumber(item.price), 0
+            );
+        }, 0)
+      : items.reduce((sum, item) => sum + toNumber(item.quantity) * toNumber(item.price), 0);
     const discountRate = Math.min(100, toNumber(state?.discountRate ?? elements.discountRate.value));
     const discountAmount = subtotal * (discountRate / 100);
     const taxableAmount = subtotal - discountAmount;
@@ -247,7 +734,7 @@
   }
 
   function calculate() {
-    elements.itemsBody.querySelectorAll(".line-item").forEach((row) => {
+    elements.invoiceShell.querySelectorAll(".line-item").forEach((row) => {
       const total = toNumber(row.querySelector(".item-quantity").value) *
         toNumber(row.querySelector(".item-price").value);
       row.querySelector(".item-total").textContent = euro.format(total);
@@ -263,6 +750,8 @@
     elements.vatLabel.textContent = `TVA ${vatRate.toLocaleString("fr-BE")} %`;
     elements.vatAmount.textContent = euro.format(totals.vatAmount);
     elements.grandTotal.textContent = euro.format(totals.grandTotal);
+    elements.vatZeroNotice.hidden = vatRate !== 0;
+    schedulePagination();
     return totals;
   }
 
@@ -312,6 +801,23 @@
     elements.quoteSubjectDisplay.textContent = elements.quoteSubject.value.trim() || "Votre demande de travaux";
     elements.quoteIntroDisplay.textContent = elements.quoteIntro.value.trim() ||
       "Suite à votre demande et à l’analyse réalisée, nous vous remettons notre meilleure offre pour l’exécution des travaux décrits ci-dessous.";
+    if (isQuote) {
+      renderOfferSections();
+    } else {
+      resetPagination();
+      elements.quoteFreeContent.hidden = true;
+      elements.lineItemsWrap.hidden = false;
+      elements.lineItemsWrap.querySelector("thead").hidden = false;
+      elements.addLine.hidden = false;
+      elements.addSection.hidden = true;
+      document.querySelectorAll(".quote-free-setting, .quote-free-amount-setting").forEach((element) => {
+        element.hidden = true;
+      });
+      elements.itemsBody.querySelectorAll(".line-item").forEach((row) => { row.hidden = false; });
+      elements.itemsBody.querySelectorAll(".service-section-free-text-row").forEach((row) => { row.hidden = true; });
+    }
+    resizeAllTextareas();
+    schedulePagination();
   }
 
   function getState() {
@@ -338,6 +844,11 @@
       quoteDuration: elements.quoteDuration.value.trim(),
       quoteSubject: elements.quoteSubject.value.trim(),
       quoteIntro: elements.quoteIntro.value.trim(),
+      quoteActiveSection: elements.quoteActiveSection.value,
+      quoteSections: quoteSections.map((section) => ({ ...section })),
+      quoteContentMode: quoteSections[0]?.mode || "table",
+      quoteFreeText: quoteSections[0]?.freeText || "",
+      quoteFreeAmount: quoteSections[0]?.freeAmount ?? "0",
       items: getItems()
     };
   }
@@ -364,8 +875,11 @@
     currentInvoiceId = state.id || null;
     currentClientId = state.clientId || null;
     elements.documentType.value = state.documentType || "invoice";
-    elements.invoiceNumber.value = state.invoiceNumber ||
-      (elements.documentType.value === "quote" ? generateQuoteNumber() : generateInvoiceNumber());
+    const expectedPrefix = getDocumentPrefix(elements.documentType.value);
+    const hasValidSavedNumber = state.id || String(state.invoiceNumber || "").startsWith(`${expectedPrefix}-`);
+    elements.invoiceNumber.value = hasValidSavedNumber && state.invoiceNumber
+      ? state.invoiceNumber
+      : (elements.documentType.value === "quote" ? generateQuoteNumber() : generateInvoiceNumber());
     elements.invoiceDate.value = state.invoiceDate || toIsoDate(new Date());
     elements.paymentDays.value = state.paymentDays ?? "30";
     elements.discountRate.value = state.discountRate ?? "0";
@@ -381,10 +895,64 @@
     elements.quoteSubject.value = state.quoteSubject || "";
     elements.quoteIntro.value = state.quoteIntro || "";
     elements.savedClientSelect.value = currentClientId || "";
+    resetPagination();
     elements.itemsBody.textContent = "";
-    (state.items?.length ? state.items : [{ quantity: 1, price: 0 }]).forEach(createLine);
+    const stateItems = state.items?.length ? state.items : [{ quantity: 1, price: 0 }];
+    if (state.quoteSections?.length) {
+      quoteSections = state.quoteSections.map((section, index) => ({
+        id: section.id || `section-${index + 1}`,
+        title: section.title || (index === 0 ? DEFAULT_SERVICE_SECTION_TITLE : `Section ${index + 1}`),
+        mode: section.mode || "table",
+        freeText: section.freeText || "",
+        freeAmount: section.freeAmount ?? "0"
+      }));
+    } else {
+      quoteSections = [{
+        id: "section-1",
+        title: DEFAULT_SERVICE_SECTION_TITLE,
+        mode: state.quoteContentMode || "table",
+        freeText: state.quoteFreeText || "",
+        freeAmount: state.quoteFreeAmount ?? "0"
+      }];
+      const legacySections = new Map();
+      stateItems.forEach((item) => {
+        const sectionIndex = Math.max(1, Number.parseInt(item.sectionIndex, 10) || 1);
+        if (sectionIndex > 1 && !legacySections.has(sectionIndex)) {
+          legacySections.set(sectionIndex, {
+            id: item.sectionId || `section-${sectionIndex}`,
+            title: item.sectionTitle || `Section ${sectionIndex}`,
+            mode: "table",
+            freeText: "",
+            freeAmount: "0"
+          });
+        }
+      });
+      [...legacySections.entries()].sort(([a], [b]) => a - b).forEach(([, section]) => quoteSections.push(section));
+    }
+
+    if (!quoteSections.length) {
+      quoteSections = [{ id: "section-1", title: DEFAULT_SERVICE_SECTION_TITLE, mode: "table", freeText: "", freeAmount: "0" }];
+    }
+    quoteSections[0].id = "section-1";
+
+    const normalizedItems = stateItems.map((item) => {
+      const sectionIndex = Math.max(1, Number.parseInt(item.sectionIndex, 10) || 1);
+      const matchingSection = quoteSections.find((section) => section.id === item.sectionId) ||
+        quoteSections[Math.min(sectionIndex - 1, quoteSections.length - 1)] || quoteSections[0];
+      return { ...item, sectionId: matchingSection.id };
+    });
+    const firstSectionItems = normalizedItems.filter((item) => item.sectionId === quoteSections[0].id);
+    (firstSectionItems.length ? firstSectionItems : [{ quantity: 1, price: 0, sectionId: quoteSections[0].id }])
+      .forEach((item) => createLine(item));
+    quoteSections.slice(1).forEach((section) => {
+      const sectionItems = normalizedItems.filter((item) => item.sectionId === section.id);
+      createServiceSection(section.title, sectionItems, section);
+    });
+    refreshQuoteSectionSelector(state.quoteActiveSection || quoteSections[0].id);
+    loadActiveSectionControls();
     updateDocumentMeta();
     calculate();
+    resizeAllTextareas();
   }
 
   function loadDraft() {
@@ -402,15 +970,9 @@
     const documentName = mode === "quote" ? "offre" : "facture";
     if (!force && hasContent && !window.confirm(`Créer une nouvelle ${documentName} et remplacer le brouillon actuel ?`)) return false;
 
-    const counterKey = mode === "quote" ? STORAGE.quoteCounter : STORAGE.counter;
-    const currentNumber = Number.parseInt(localStorage.getItem(counterKey), 10) || 1;
-    const nextNumber = currentNumber + 1;
-    localStorage.setItem(counterKey, String(nextNumber));
     localStorage.removeItem(STORAGE.draft);
     const now = new Date();
-    const number = mode === "quote"
-      ? `ALT-${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}${String(nextNumber).padStart(3, "0")}`
-      : `FAC-${now.getFullYear()}-${String(nextNumber).padStart(3, "0")}`;
+    const number = generateDocumentNumber(mode, { reserve: true });
     applyState({
       documentType: mode,
       invoiceNumber: number,
@@ -419,6 +981,9 @@
       quoteValidityDays: "30",
       quoteIssuer: "Alma Angel",
       quoteDuration: "3 semaines",
+      quoteContentMode: "table",
+      quoteFreeText: "",
+      quoteFreeAmount: "0",
       vatRate: "21",
       items: [{ quantity: 1, price: 0 }]
     });
@@ -534,6 +1099,11 @@
       if (!silent) window.alert(`Indiquez une référence pour ${documentName}.`);
       return null;
     }
+    const expectedNumber = new RegExp(`^${getDocumentPrefix(state.documentType)}-\\d{4}-\\d{3,}$`);
+    if (!expectedNumber.test(state.invoiceNumber)) {
+      window.alert(`Le numéro ${state.invoiceNumber} n’est pas conforme au format séquentiel attendu.`);
+      return null;
+    }
 
     const client = saveCurrentClient({ silent: true });
     state.clientId = client?.id || currentClientId;
@@ -547,8 +1117,10 @@
     state.totals = getTotals(state);
 
     const sameNumber = invoices.find((invoice) => invoice.invoiceNumber === state.invoiceNumber && invoice.id !== state.id);
-    if (sameNumber && !silent && !window.confirm(`Le document ${state.invoiceNumber} existe déjà. Le remplacer ?`)) return null;
-    if (sameNumber) invoices = invoices.filter((invoice) => invoice.id !== sameNumber.id);
+    if (sameNumber) {
+      window.alert(`Le document ${state.invoiceNumber} existe déjà. L’enregistrement est bloqué pour éviter un doublon.`);
+      return null;
+    }
 
     const index = invoices.findIndex((invoice) => invoice.id === state.id);
     if (index >= 0) invoices[index] = state;
@@ -556,6 +1128,7 @@
 
     currentInvoiceId = state.id;
     writeCollection(STORAGE.invoices, invoices);
+    advanceLocalCounter(state.documentType, state.invoiceNumber);
     saveDraft();
     refreshHistoryInterface();
     renderStats();
@@ -877,6 +1450,7 @@
     if (viewId === "clientsView") renderClients();
     if (viewId === "historyView") renderHistory();
     if (viewId === "statsView") renderStats();
+    if (viewId === "invoiceView") schedulePagination();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -892,24 +1466,48 @@
   });
 
   elements.addLine.addEventListener("click", () => {
-    createLine();
-    elements.itemsBody.lastElementChild.querySelector(".item-description").focus();
+    resetPagination();
+    const newLine = createLine();
+    newLine.querySelector(".item-description").focus();
     scheduleDraftSave();
+    schedulePagination();
+  });
+  elements.addSection.addEventListener("click", () => {
+    resetPagination();
+    createServiceSection("", [{ quantity: 1, price: 0 }]);
+    const lastSection = [...elements.itemsBody.querySelectorAll(".service-section-row")].pop();
+    if (lastSection) {
+      refreshQuoteSectionSelector(lastSection.dataset.sectionId);
+      loadActiveSectionControls();
+      renderOfferSections();
+    }
+    lastSection?.querySelector(".service-section-title").focus();
+    scheduleDraftSave();
+    schedulePagination();
   });
   elements.newInvoice.addEventListener("click", () => startNewDocument(elements.documentType.value));
   elements.saveInvoice.addEventListener("click", () => saveInvoiceToHistory());
   elements.saveClient.addEventListener("click", () => saveCurrentClient());
   elements.emailInvoice.addEventListener("click", () => emailInvoice());
   elements.printInvoice.addEventListener("click", () => {
-    saveInvoiceToHistory({ silent: true });
+    resizeAllTextareas();
     saveDraft("Prête à imprimer");
+    paginateDocument();
     window.print();
   });
   elements.savedClientSelect.addEventListener("change", () => {
     if (elements.savedClientSelect.value) selectClient(elements.savedClientSelect.value);
   });
   elements.documentType.addEventListener("change", () => {
+    currentInvoiceId = null;
+    elements.invoiceNumber.value = generateDocumentNumber(elements.documentType.value, { reserve: true });
     updateDocumentMeta();
+    scheduleDraftSave();
+  });
+  elements.quoteActiveSection.addEventListener("change", () => {
+    loadActiveSectionControls();
+    renderOfferSections();
+    calculate();
     scheduleDraftSave();
   });
   elements.clientSearch.addEventListener("input", renderClients);
@@ -966,14 +1564,24 @@
     elements.quoteValidityDays,
     elements.quoteDuration,
     elements.quoteSubject,
-    elements.quoteIntro
+    elements.quoteIntro,
+    elements.quoteContentMode,
+    elements.quoteFreeText,
+    elements.quoteFreeAmount
   ].forEach((field) => {
     field.addEventListener("input", () => {
+      if (field.tagName === "TEXTAREA") autoGrowTextarea(field);
+      if ([elements.quoteContentMode, elements.quoteFreeText, elements.quoteFreeAmount].includes(field)) {
+        syncActiveSectionFromControls();
+      }
       updateDocumentMeta();
       calculate();
       scheduleDraftSave();
     });
     field.addEventListener("change", () => {
+      if ([elements.quoteContentMode, elements.quoteFreeText, elements.quoteFreeAmount].includes(field)) {
+        syncActiveSectionFromControls();
+      }
       updateDocumentMeta();
       calculate();
       scheduleDraftSave();
@@ -981,9 +1589,18 @@
   });
 
   window.addEventListener("beforeprint", () => {
-    updateDocumentMeta();
+    isPrinting = true;
+    resizeAllTextareas();
     calculate();
+    paginateDocument();
   });
+
+  window.addEventListener("afterprint", () => {
+    isPrinting = false;
+    schedulePagination();
+  });
+
+  window.addEventListener("resize", schedulePagination);
 
   refreshClientInterface();
   refreshHistoryInterface();

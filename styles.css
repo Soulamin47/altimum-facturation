@@ -389,6 +389,14 @@ select:focus-visible {
   resize: vertical;
 }
 
+.field-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
 .document-type-control {
   display: none;
 }
@@ -398,6 +406,15 @@ select:focus-visible {
   border-left: 3px solid var(--orange);
   border-radius: 0 10px 10px 0;
   background: rgba(232, 93, 47, 0.07);
+}
+
+.tip--warning {
+  border-color: rgba(196, 118, 20, 0.32);
+  background: rgba(255, 244, 220, 0.78);
+}
+
+.tip--warning strong {
+  color: #8a520b;
 }
 
 .tip strong {
@@ -449,13 +466,55 @@ select:focus-visible {
   flex-direction: column;
   width: 100%;
   aspect-ratio: 210 / 297;
-  min-height: 1160px;
+  min-height: 0;
   overflow: hidden;
-  padding: 58px 64px 130px;
+  padding: 58px 64px 198px;
   background: #fff url("assets/letterhead-bg.png") top center / 100% auto repeat-y;
   border: 1px solid rgba(139, 21, 56, 0.08);
   border-radius: 0 0 8px 8px;
   box-shadow: var(--shadow);
+}
+
+.invoice--continuation {
+  margin-top: 30px;
+  border-radius: 8px;
+}
+
+.continuation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 145px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  gap: 30px;
+}
+
+.continuation-header div {
+  display: grid;
+  gap: 5px;
+}
+
+.continuation-header span {
+  color: var(--bordeaux);
+  font-family: Museo, Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.continuation-header strong,
+.continuation-header small {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+}
+
+.continuation-header small {
+  color: var(--muted);
+}
+
+.continuation-items-wrap,
+.continuation-free-content {
+  margin-top: 24px;
 }
 
 .invoice__accent {
@@ -558,6 +617,15 @@ select:focus-visible {
   font-size: 0.78rem;
 }
 
+textarea.paper-input,
+.item-description,
+.item-details,
+#quoteFreeText {
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .paper-input--strong {
   color: #1a1a1a;
   font-size: 1rem;
@@ -611,7 +679,7 @@ select:focus-visible {
 }
 
 .line-items-wrap {
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .line-items {
@@ -659,6 +727,11 @@ select:focus-visible {
   padding: 13px 8px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
+}
+
+.line-item {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .line-item td:first-child {
@@ -761,6 +834,95 @@ select:focus-visible {
 .add-line span {
   color: var(--orange);
   font-size: 1rem;
+}
+
+.add-section {
+  margin-top: 9px;
+  border-color: rgba(46, 42, 40, 0.28);
+  color: #262220;
+}
+
+.service-section-row td {
+  padding: 0 !important;
+  border: 0 !important;
+  background: #fff !important;
+}
+
+.service-section-row.is-active-section td {
+  box-shadow: 0 0 0 2px rgba(239, 92, 50, 0.42);
+}
+
+.service-section-free-text-row td {
+  padding: 0 !important;
+  border: 0 !important;
+  background: #fff !important;
+}
+
+.service-section-free-content {
+  margin: 0;
+  border-top: 0;
+  border-right: 1px solid rgba(46, 42, 40, 0.32);
+  border-bottom: 1px solid rgba(46, 42, 40, 0.32);
+  border-left: 1px solid rgba(46, 42, 40, 0.32);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.service-section-heading {
+  display: grid;
+  grid-template-columns: 32px 1fr 34px;
+  align-items: center;
+  padding: 10px 9px;
+  background: var(--bordeaux);
+  gap: 10px;
+}
+
+.service-section-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: #fff;
+  color: var(--bordeaux);
+  font-weight: 800;
+}
+
+.service-section-title {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 4px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 750;
+  resize: none;
+}
+
+.service-section-title::placeholder {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.service-section-title:focus {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.remove-section {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.remove-section:hover {
+  background: #fff;
+  color: var(--bordeaux);
 }
 
 .invoice-summary {
@@ -927,7 +1089,22 @@ select:focus-visible {
 }
 
 .invoice.is-quote .line-items {
-  border: 1px solid rgba(46, 42, 40, 0.4);
+  border: 0;
+}
+
+.invoice.is-quote .quote-section-heading {
+  margin-bottom: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(46, 42, 40, 0.28);
+  border-bottom: 0;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.invoice.is-quote .line-items-wrap {
+  overflow: visible;
+  border: 1px solid rgba(46, 42, 40, 0.32);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(46, 42, 40, 0.06);
 }
 
 .invoice.is-quote .line-items th {
@@ -965,7 +1142,24 @@ select:focus-visible {
 .invoice.is-quote .line-item td {
   border-right: 1px solid rgba(46, 42, 40, 0.22);
   border-bottom-color: rgba(46, 42, 40, 0.3);
+  background: rgba(255, 255, 255, 0.96);
   vertical-align: top;
+}
+
+.invoice.is-quote .item-description,
+.invoice.is-quote .item-details,
+.invoice.is-quote .item-quantity,
+.invoice.is-quote .item-price {
+  border-color: rgba(46, 42, 40, 0.22);
+  background: #fff;
+  color: #211e1c;
+}
+
+.invoice.is-quote .item-description::placeholder,
+.invoice.is-quote .item-details::placeholder,
+.invoice.is-quote .item-quantity::placeholder,
+.invoice.is-quote .item-price::placeholder {
+  color: #756c66;
 }
 
 .invoice.is-quote .line-item td:nth-child(4) {
@@ -979,6 +1173,64 @@ select:focus-visible {
 .invoice.is-quote .totals__grand {
   border-radius: 0;
   background: #222;
+}
+
+.quote-free-content {
+  margin: 4px 0 24px;
+  padding: 18px 20px;
+  border: 1px solid rgba(46, 42, 40, 0.32);
+  background: rgba(255, 255, 255, 0.62);
+  color: #25211f;
+  font-size: 0.76rem;
+  line-height: 1.62;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.quote-free-content p {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.quote-free-content p:last-child {
+  margin-bottom: 0;
+}
+
+.legal-details {
+  position: absolute;
+  right: 64px;
+  bottom: 4px;
+  left: 64px;
+  display: grid;
+  margin: 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--bordeaux);
+  background: rgba(139, 21, 56, 0.045);
+  color: #4b4541;
+  font-size: 0.61rem;
+  line-height: 1.35;
+  gap: 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.legal-details--repeated {
+  pointer-events: none;
+}
+
+.legal-details strong {
+  color: var(--bordeaux);
+}
+
+.legal-details p {
+  margin: 3px 0 0;
+  padding-top: 4px;
+  border-top: 1px solid rgba(139, 21, 56, 0.2);
+  color: #1f1c1a;
+  font-size: 0.59rem;
+  font-weight: 750;
 }
 
 .management-view {
@@ -1537,7 +1789,19 @@ select:focus-visible {
 
   .invoice {
     min-height: auto;
+    height: auto;
+    aspect-ratio: auto;
+    overflow: visible;
     padding: 42px 22px 28px;
+  }
+
+  .legal-details {
+    position: static;
+    margin-top: 24px;
+  }
+
+  .invoice--continuation {
+    margin-top: 18px;
   }
 
   .invoice__header,
@@ -1611,6 +1875,24 @@ select:focus-visible {
   .invoice.is-quote .line-item .quote-details-cell {
     display: grid;
   }
+
+  .service-section-row,
+  .service-section-row td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .service-section-row td::before {
+    display: none;
+  }
+
+  .invoice.is-quote .line-items-wrap {
+    padding: 10px 12px;
+  }
+
+  .invoice.is-quote .line-item td {
+    background: transparent;
+  }
 }
 
 @page {
@@ -1650,13 +1932,35 @@ select:focus-visible {
   .invoice {
     width: 210mm;
     min-height: 297mm;
-    padding: 14mm 16mm 30mm;
+    height: 297mm;
+    aspect-ratio: auto;
+    overflow: hidden;
+    padding: 14mm 16mm 49mm;
     background: #fff url("assets/letterhead-bg.png") top center / 210mm 297mm repeat-y;
     border: 0;
     border-radius: 0;
     box-shadow: none;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .legal-details {
+    position: absolute;
+    right: 16mm;
+    bottom: 1mm;
+    left: 16mm;
+    margin: 0;
+  }
+
+  .invoice--continuation {
+    margin-top: 0;
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .continuation-header {
+    padding-top: 30mm;
+    padding-bottom: 7mm;
   }
 
   .paper-input,
@@ -1696,9 +2000,29 @@ select:focus-visible {
     padding: 8mm 0;
   }
 
+  .invoice.is-quote .invoice-meta {
+    padding: 4mm 0;
+  }
+
+  .invoice.is-quote .client-block,
+  .invoice.is-quote .date-block {
+    padding-right: 3mm;
+    padding-left: 3mm;
+  }
+
+  .client-block .paper-input:placeholder-shown {
+    display: none;
+  }
+
   .line-items {
     display: table;
     width: 100%;
+  }
+
+  .line-items-wrap,
+  .continuation-items-wrap {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .line-items thead {
@@ -1714,6 +2038,35 @@ select:focus-visible {
     width: auto;
     padding: 0;
     border: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .service-section-row {
+    display: table-row !important;
+    width: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .service-section-row td {
+    display: table-cell !important;
+    width: auto !important;
+  }
+
+  .service-section-free-text-row:not([hidden]) {
+    display: table-row !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .service-section-free-text-row[hidden] {
+    display: none !important;
+  }
+
+  .service-section-free-text-row td {
+    display: table-cell !important;
+    width: auto !important;
   }
 
   .line-item td {
@@ -1730,8 +2083,38 @@ select:focus-visible {
   }
 
   .line-items th.action-column,
-  .line-item .line-action {
+  .line-item .line-action,
+  .remove-section {
     display: none !important;
+  }
+
+  .invoice.is-quote .line-items th:nth-child(1) {
+    width: 34%;
+  }
+
+  .invoice.is-quote .line-items th:nth-child(2) {
+    width: 46%;
+  }
+
+  .invoice.is-quote .line-items th:nth-child(4) {
+    width: 20%;
+  }
+
+  .line-items th.action-column,
+  .line-item .line-action {
+    width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  .service-section-title {
+    border-color: transparent;
+    background: transparent;
+    color: #fff;
+  }
+
+  .service-section-row.is-active-section td {
+    box-shadow: none;
   }
 
   .quote-details-column,
@@ -1742,6 +2125,12 @@ select:focus-visible {
   .invoice.is-quote .quote-details-column,
   .invoice.is-quote .quote-details-cell {
     display: table-cell !important;
+  }
+
+  .invoice.is-quote .line-items-wrap,
+  .invoice.is-quote .quote-section-heading {
+    background: #fff;
+    box-shadow: none;
   }
 
   .invoice-summary {
@@ -1759,8 +2148,15 @@ select:focus-visible {
   .totals,
   .notes-block,
   .quote-introduction,
-  .quote-section-heading {
+  .quote-section-heading,
+  .legal-details,
+  .quote-free-content p {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .quote-free-content {
+    white-space: pre-wrap;
+    overflow: visible;
   }
 }

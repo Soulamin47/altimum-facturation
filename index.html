@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#8b1538">
   <meta name="description" content="Outil de facturation Altimum Projects & Solutions">
   <title>Facturation — Altimum</title>
-  <link rel="stylesheet" href="styles.css?v=20260731-2">
-  <script src="app.js?v=20260731-2" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260805-1">
+  <script src="app.js?v=20260805-1" defer></script>
 </head>
 <body>
   <div class="blueprint-bg" aria-hidden="true"></div>
@@ -62,6 +62,15 @@
           <option value="invoice">Facture</option>
           <option value="quote">Offre</option>
         </select>
+      </div>
+
+      <div class="settings-group">
+        <label for="billingEntity">Société facturante</label>
+        <select id="billingEntity" name="billingEntity">
+          <option value="altimum">Altimum SRL</option>
+          <option value="el_animo">EL ANIMO SRL</option>
+        </select>
+        <small class="field-help" id="billingEntityHelp">L’en-tête et les mentions légales s’adaptent automatiquement.</small>
       </div>
 
       <div class="settings-group">
@@ -182,8 +191,9 @@
 
         <header class="invoice__header">
           <div class="company">
-            <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="company__logo">
-            <div class="company__details">
+            <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="company__logo" id="companyLogo">
+            <strong class="company__wordmark" id="companyWordmark" hidden>EL ANIMO SRL</strong>
+            <div class="company__details" id="companyDetails">
               <span>Rue des Anciens Étangs 40</span>
               <span>1190 Forest, Belgique</span>
               <span>info@altimum.be · +32 486 27 40 24</span>
@@ -295,15 +305,15 @@
           </dl>
         </section>
 
-        <section class="legal-details" aria-label="Mentions légales Altimum">
-          <strong>ALTIMUM SRL — BCE 1034.152.335 — TVA BE 1034.152.335</strong>
-          <span>IBAN : BE83 6451 1058 7715</span>
+        <section class="legal-details" aria-label="Mentions légales de la société facturante">
+          <strong id="legalEntityName">ALTIMUM SRL — BCE 1034.152.335 — TVA BE 1034.152.335</strong>
+          <span id="legalEntitySecondary">IBAN : BE83 6451 1058 7715</span>
           <p id="vatZeroNotice" hidden>TVA à acquitter par le cocontractant — Article 20 de l'AR n°1 — Autoliquidation</p>
         </section>
 
         <footer class="invoice__footer">
           <p id="documentFooter"><strong>Merci pour votre confiance.</strong><br>Tout paiement est à effectuer selon les modalités convenues avec Altimum SRL.</p>
-          <span>Altimum Projects & Solutions</span>
+          <span id="documentFooterBrand">Altimum Projects & Solutions</span>
         </footer>
       </article>
     </section>

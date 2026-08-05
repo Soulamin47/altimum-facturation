@@ -23,6 +23,32 @@
   const shortDateFormatter = new Intl.DateTimeFormat("fr-BE");
   const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
   const DEFAULT_SERVICE_SECTION_TITLE = "Prestations nécessaires à l’exécution du chantier";
+  const BILLING_ENTITIES = {
+    altimum: {
+      id: "altimum",
+      name: "ALTIMUM SRL",
+      brand: "Altimum Projects & Solutions",
+      companyNumber: "1034.152.335",
+      vatNumber: "BE 1034.152.335",
+      addressLines: ["Rue des Anciens Étangs 40", "1190 Forest, Belgique"],
+      contactLine: "info@altimum.be · +32 486 27 40 24",
+      email: "info@altimum.be",
+      phone: "+32 486 27 40 24",
+      iban: "BE83 6451 1058 7715"
+    },
+    el_animo: {
+      id: "el_animo",
+      name: "EL ANIMO SRL",
+      brand: "EL ANIMO",
+      companyNumber: "1030.793.264",
+      vatNumber: "BE 1030.793.264",
+      addressLines: ["Avenue Louise 367", "1050 Bruxelles, Belgique"],
+      contactLine: "",
+      email: "",
+      phone: "",
+      iban: ""
+    }
+  };
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
@@ -45,12 +71,19 @@
     savedClientSelect: $("#savedClientSelect"),
     saveStatus: $("#saveStatus"),
     documentType: $("#documentType"),
+    billingEntity: $("#billingEntity"),
+    billingEntityHelp: $("#billingEntityHelp"),
     settingsTitle: $("#settingsTitle"),
     settingsDescription: $("#settingsDescription"),
     documentKicker: $("#documentKicker"),
     documentTitle: $("#documentTitle"),
     documentNumberLabel: $("#documentNumberLabel"),
     documentFooter: $("#documentFooter"),
+    documentFooterBrand: $("#documentFooterBrand"),
+    companyWordmark: $("#companyWordmark"),
+    companyDetails: $("#companyDetails"),
+    legalEntityName: $("#legalEntityName"),
+    legalEntitySecondary: $("#legalEntitySecondary"),
     clientBlockLabel: $("#clientBlockLabel"),
     dateLabel: $("#dateLabel"),
     dueDateLabel: $("#dueDateLabel"),
@@ -206,19 +239,25 @@
     return mode === "quote" ? "OFFRE" : "FACT";
   }
 
-  function getCounterKey(mode) {
-    return mode === "quote" ? STORAGE.quoteCounter : STORAGE.counter;
+  function getBillingEntity(entityId = elements.billingEntity?.value || "altimum") {
+    return BILLING_ENTITIES[entityId] || BILLING_ENTITIES.altimum;
   }
 
-  function getNextLocalSequence(mode, year = new Date().getFullYear()) {
+  function getCounterKey(mode, entityId = elements.billingEntity?.value || "altimum") {
+    const baseKey = mode === "quote" ? STORAGE.quoteCounter : STORAGE.counter;
+    return entityId === "altimum" ? baseKey : `${baseKey}-${entityId}`;
+  }
+
+  function getNextLocalSequence(mode, year = new Date().getFullYear(), entityId = elements.billingEntity?.value || "altimum") {
     const prefix = getDocumentPrefix(mode);
     const pattern = new RegExp(`^${prefix}-${year}-(\\d+)$`);
     const historyMaximum = invoices.reduce((maximum, document) => {
       if (document.documentType !== mode) return maximum;
+      if ((document.billingEntity || "altimum") !== entityId) return maximum;
       const match = String(document.invoiceNumber || "").match(pattern);
       return match ? Math.max(maximum, Number.parseInt(match[1], 10) || 0) : maximum;
     }, 0);
-    const storedNext = Number.parseInt(localStorage.getItem(getCounterKey(mode)), 10) || 1;
+    const storedNext = Number.parseInt(localStorage.getItem(getCounterKey(mode, entityId)), 10) || 1;
     return Math.max(1, storedNext, historyMaximum + 1);
   }
 
@@ -226,10 +265,10 @@
     return `${getDocumentPrefix(mode)}-${year}-${String(sequence).padStart(3, "0")}`;
   }
 
-  function generateDocumentNumber(mode, { reserve = false } = {}) {
+  function generateDocumentNumber(mode, { reserve = false, entityId = elements.billingEntity?.value || "altimum" } = {}) {
     const year = new Date().getFullYear();
-    const sequence = getNextLocalSequence(mode, year);
-    if (reserve) localStorage.setItem(getCounterKey(mode), String(sequence + 1));
+    const sequence = getNextLocalSequence(mode, year, entityId);
+    if (reserve) localStorage.setItem(getCounterKey(mode, entityId), String(sequence + 1));
     return formatDocumentNumber(mode, year, sequence);
   }
 
@@ -241,11 +280,11 @@
     return generateDocumentNumber("quote");
   }
 
-  function advanceLocalCounter(mode, documentNumber) {
+  function advanceLocalCounter(mode, documentNumber, entityId = elements.billingEntity?.value || "altimum") {
     const match = String(documentNumber || "").match(/^(FACT|OFFRE)-(\d{4})-(\d+)$/);
     if (!match || match[1] !== getDocumentPrefix(mode)) return;
     const nextSequence = Number.parseInt(match[3], 10) + 1;
-    const counterKey = getCounterKey(mode);
+    const counterKey = getCounterKey(mode, entityId);
     const storedNext = Number.parseInt(localStorage.getItem(counterKey), 10) || 1;
     localStorage.setItem(counterKey, String(Math.max(storedNext, nextSequence)));
   }
@@ -312,7 +351,7 @@
 
   function createContinuationPage(pageNumber) {
     const page = document.createElement("article");
-    page.className = `invoice invoice--continuation${elements.invoice.classList.contains("is-quote") ? " is-quote" : ""}`;
+    page.className = `invoice invoice--continuation${elements.invoice.classList.contains("is-quote") ? " is-quote" : ""}${elements.invoice.classList.contains("is-el-animo") ? " is-el-animo" : ""}`;
     page.setAttribute("aria-label", `${elements.documentTitle.textContent} — page ${pageNumber}`);
 
     const continuationHeader = document.createElement("header");
@@ -755,9 +794,38 @@
     return totals;
   }
 
+  function updateBillingEntityPresentation() {
+    const entity = getBillingEntity();
+    const isElAnimo = entity.id === "el_animo";
+    elements.invoice.classList.toggle("is-el-animo", isElAnimo);
+    elements.billingEntityHelp.textContent = isElAnimo
+      ? "Version provisoire : logo, IBAN, téléphone et email restent à compléter."
+      : "L’en-tête et les mentions légales s’adaptent automatiquement.";
+    elements.companyWordmark.hidden = !isElAnimo;
+    elements.companyWordmark.textContent = entity.name;
+    elements.companyDetails.replaceChildren();
+    const detailLines = [
+      ...entity.addressLines,
+      entity.contactLine,
+      entity.iban ? `IBAN : ${entity.iban}` : `BCE / TVA : ${entity.vatNumber}`
+    ].filter(Boolean);
+    detailLines.forEach((line) => {
+      const span = document.createElement("span");
+      span.textContent = line;
+      elements.companyDetails.appendChild(span);
+    });
+    elements.legalEntityName.textContent = `${entity.name} — BCE ${entity.companyNumber} — TVA ${entity.vatNumber}`;
+    elements.legalEntitySecondary.textContent = entity.iban
+      ? `IBAN : ${entity.iban}`
+      : entity.addressLines.join(" — ");
+    elements.documentFooterBrand.textContent = entity.brand;
+    return entity;
+  }
+
   function updateDocumentMeta() {
     const number = elements.invoiceNumber.value.trim() || "Sans numéro";
     const isQuote = elements.documentType.value === "quote";
+    const billingEntity = updateBillingEntityPresentation();
     elements.invoice.classList.toggle("is-quote", isQuote);
     document.querySelectorAll(".quote-only-setting").forEach((element) => {
       element.hidden = !isQuote;
@@ -783,10 +851,10 @@
     elements.totalColumnLabel.textContent = "Total HT";
     elements.addLineLabel.textContent = isQuote ? "Ajouter un poste à l’offre" : "Ajouter un produit ou une prestation";
     elements.documentFooter.innerHTML = isQuote
-      ? "<strong>Merci pour votre confiance.</strong><br>Cette offre reste soumise à votre acceptation et aux conditions convenues avec Altimum SRL."
-      : "<strong>Merci pour votre confiance.</strong><br>Tout paiement est à effectuer selon les modalités convenues avec Altimum SRL.";
+      ? `<strong>Merci pour votre confiance.</strong><br>Cette offre reste soumise à votre acceptation et aux conditions convenues avec ${escapeHtml(billingEntity.name)}.`
+      : `<strong>Merci pour votre confiance.</strong><br>Tout paiement est à effectuer selon les modalités convenues avec ${escapeHtml(billingEntity.name)}.`;
     elements.invoiceNumberDisplay.textContent = number;
-    document.title = `${isQuote ? "Offre" : "Facture"} ${number} — Altimum`;
+    document.title = `${isQuote ? "Offre" : "Facture"} ${number} — ${billingEntity.name}`;
 
     const date = parseIsoDate(elements.invoiceDate.value);
     const dueDate = parseIsoDate(getDueDate(
@@ -825,6 +893,7 @@
       id: currentInvoiceId,
       clientId: currentClientId,
       documentType: elements.documentType.value,
+      billingEntity: elements.billingEntity.value,
       invoiceNumber: elements.invoiceNumber.value.trim(),
       invoiceDate: elements.invoiceDate.value,
       dueDate: getDueDate(
@@ -875,6 +944,7 @@
     currentInvoiceId = state.id || null;
     currentClientId = state.clientId || null;
     elements.documentType.value = state.documentType || "invoice";
+    elements.billingEntity.value = state.billingEntity || "altimum";
     const expectedPrefix = getDocumentPrefix(elements.documentType.value);
     const hasValidSavedNumber = state.id || String(state.invoiceNumber || "").startsWith(`${expectedPrefix}-`);
     elements.invoiceNumber.value = hasValidSavedNumber && state.invoiceNumber
@@ -975,6 +1045,7 @@
     const number = generateDocumentNumber(mode, { reserve: true });
     applyState({
       documentType: mode,
+      billingEntity: elements.billingEntity.value || "altimum",
       invoiceNumber: number,
       invoiceDate: toIsoDate(now),
       paymentDays: "30",
@@ -1116,7 +1187,11 @@
     state.updatedAt = new Date().toISOString();
     state.totals = getTotals(state);
 
-    const sameNumber = invoices.find((invoice) => invoice.invoiceNumber === state.invoiceNumber && invoice.id !== state.id);
+    const sameNumber = invoices.find((invoice) =>
+      invoice.invoiceNumber === state.invoiceNumber &&
+      (invoice.billingEntity || "altimum") === state.billingEntity &&
+      invoice.id !== state.id
+    );
     if (sameNumber) {
       window.alert(`Le document ${state.invoiceNumber} existe déjà. L’enregistrement est bloqué pour éviter un doublon.`);
       return null;
@@ -1128,7 +1203,7 @@
 
     currentInvoiceId = state.id;
     writeCollection(STORAGE.invoices, invoices);
-    advanceLocalCounter(state.documentType, state.invoiceNumber);
+    advanceLocalCounter(state.documentType, state.invoiceNumber, state.billingEntity);
     saveDraft();
     refreshHistoryInterface();
     renderStats();
@@ -1183,7 +1258,8 @@
       .slice()
       .sort((a, b) => (b.invoiceDate || "").localeCompare(a.invoiceDate || ""))
       .filter((invoice) =>
-        [invoice.invoiceNumber, invoice.clientName, invoice.clientEmail].join(" ").toLocaleLowerCase("fr").includes(query)
+        [invoice.invoiceNumber, invoice.clientName, invoice.clientEmail, getBillingEntity(invoice.billingEntity || "altimum").name]
+          .join(" ").toLocaleLowerCase("fr").includes(query)
       );
 
     elements.historyEmpty.hidden = invoices.length > 0;
@@ -1207,7 +1283,7 @@
         `;
       return `
         <tr>
-          <td><strong>${escapeHtml(invoice.invoiceNumber)}</strong><br><small>${isQuote ? "Offre" : "Facture"}</small></td>
+          <td><strong>${escapeHtml(invoice.invoiceNumber)}</strong><br><small>${isQuote ? "Offre" : "Facture"} · ${escapeHtml(getBillingEntity(invoice.billingEntity || "altimum").name)}</small></td>
           <td>${escapeHtml(invoice.clientName)}</td>
           <td>${date ? shortDateFormatter.format(date) : "—"}</td>
           <td>${due ? shortDateFormatter.format(due) : "—"}</td>
@@ -1241,7 +1317,8 @@
     }
     const totals = state.totals || getTotals(state);
     const isQuote = state.documentType === "quote";
-    const subject = `${isQuote ? "Offre" : "Facture"} ${state.invoiceNumber} — Altimum`;
+    const billingEntity = getBillingEntity(state.billingEntity || "altimum");
+    const subject = `${isQuote ? "Offre" : "Facture"} ${state.invoiceNumber} — ${billingEntity.name}`;
     const body = [
       `Bonjour ${state.clientName},`,
       "",
@@ -1251,9 +1328,9 @@
       `Merci d’ajouter le PDF ${isQuote ? "de l’offre" : "de la facture"} en pièce jointe avant l’envoi.`,
       "",
       "Bien à vous,",
-      "Altimum Projects & Solutions",
-      "+32 486 27 40 24 · info@altimum.be"
-    ].join("\n");
+      billingEntity.brand,
+      [billingEntity.phone, billingEntity.email].filter(Boolean).join(" · ")
+    ].filter((line, index, lines) => line || index < lines.length - 1).join("\n");
     window.location.href = `mailto:${encodeURIComponent(state.clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
@@ -1353,6 +1430,7 @@
       };
       return `<Row>
         ${excelCell(invoice.documentType === "quote" ? "Offre" : "Facture")}
+        ${excelCell(getBillingEntity(invoice.billingEntity || "altimum").name)}
         ${excelCell(invoice.invoiceNumber)}
         ${excelCell(invoice.invoiceDate)}
         ${excelCell(invoice.dueDate || getDueDate(invoice.invoiceDate, invoice.paymentDays))}
@@ -1371,6 +1449,7 @@
     const itemRows = invoices.flatMap((invoice) =>
       invoice.items.map((item) => `<Row>
         ${excelCell(invoice.documentType === "quote" ? "Offre" : "Facture")}
+        ${excelCell(getBillingEntity(invoice.billingEntity || "altimum").name)}
         ${excelCell(invoice.invoiceNumber)}
         ${excelCell(invoice.clientName)}
         ${excelCell(item.description)}
@@ -1411,11 +1490,11 @@
           <Row>${excelCell("Facture moyenne")}${excelCell(activeInvoices.length ? revenue / activeInvoices.length : 0, "Number")}</Row>
         </Table></Worksheet>
         <Worksheet ss:Name="Documents"><Table>
-          <Row>${["Type", "N° document", "Date", "Échéance", "Client", "Email", "N° TVA", "Sous-total HT", "Remise", "Total HT", "TVA", "Total TTC", "Statut"].map((name) => excelCell(name, "String", "Header")).join("")}</Row>
+          <Row>${["Type", "Société facturante", "N° document", "Date", "Échéance", "Client", "Email", "N° TVA", "Sous-total HT", "Remise", "Total HT", "TVA", "Total TTC", "Statut"].map((name) => excelCell(name, "String", "Header")).join("")}</Row>
           ${invoiceRows}
         </Table></Worksheet>
         <Worksheet ss:Name="Lignes"><Table>
-          <Row>${["Type", "N° document", "Client", "Poste / prestation", "Description détaillée", "Quantité", "Prix unitaire HT", "Total HT"].map((name) => excelCell(name, "String", "Header")).join("")}</Row>
+          <Row>${["Type", "Société facturante", "N° document", "Client", "Poste / prestation", "Description détaillée", "Quantité", "Prix unitaire HT", "Total HT"].map((name) => excelCell(name, "String", "Header")).join("")}</Row>
           ${itemRows}
         </Table></Worksheet>
         <Worksheet ss:Name="Clients"><Table>
@@ -1428,7 +1507,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `altimum-factures-${toIsoDate(new Date())}.xls`;
+    link.download = `facturation-${toIsoDate(new Date())}.xls`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1502,6 +1581,16 @@
     currentInvoiceId = null;
     elements.invoiceNumber.value = generateDocumentNumber(elements.documentType.value, { reserve: true });
     updateDocumentMeta();
+    scheduleDraftSave();
+  });
+  elements.billingEntity.addEventListener("change", () => {
+    currentInvoiceId = null;
+    elements.invoiceNumber.value = generateDocumentNumber(elements.documentType.value, {
+      reserve: true,
+      entityId: elements.billingEntity.value
+    });
+    updateDocumentMeta();
+    calculate();
     scheduleDraftSave();
   });
   elements.quoteActiveSection.addEventListener("change", () => {

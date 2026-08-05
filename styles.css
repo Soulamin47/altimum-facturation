@@ -475,6 +475,25 @@ select:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.invoice.is-el-animo {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0 68%, rgba(139, 21, 56, 0.045) 100%),
+    repeating-linear-gradient(135deg, transparent 0 22px, rgba(46, 42, 40, 0.025) 22px 23px),
+    #fff;
+}
+
+.invoice.is-el-animo.invoice--continuation::before {
+  position: absolute;
+  top: 68px;
+  left: 64px;
+  content: "EL ANIMO SRL";
+  color: #1f1c1a;
+  font-family: Museo, Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .invoice--continuation {
   margin-top: 30px;
   border-radius: 8px;
@@ -537,6 +556,24 @@ select:focus-visible {
 
 .company__logo {
   display: none;
+}
+
+.company__wordmark {
+  display: block;
+  margin: 0;
+  color: #1f1c1a;
+  font-family: Museo, Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.invoice.is-el-animo .company {
+  gap: 10px;
+}
+
+.invoice.is-el-animo .company__details {
+  color: #514a46;
 }
 
 .company__details {
@@ -1942,6 +1979,18 @@ textarea.paper-input,
     box-shadow: none;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .invoice.is-el-animo {
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0 68%, rgba(139, 21, 56, 0.045) 100%),
+      repeating-linear-gradient(135deg, transparent 0 6mm, rgba(46, 42, 40, 0.025) 6mm 6.3mm),
+      #fff;
+  }
+
+  .invoice.is-el-animo.invoice--continuation::before {
+    top: 18mm;
+    left: 16mm;
   }
 
   .legal-details {

@@ -49,6 +49,107 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html.auth-locked {
+  overflow: hidden;
+}
+
+html.auth-locked .blueprint-bg,
+html.auth-locked .app-header,
+html.auth-locked .app-nav,
+html.auth-locked .app-main {
+  visibility: hidden;
+}
+
+.auth-gate {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  inset: 0;
+  padding: 24px;
+  background:
+    linear-gradient(rgba(245, 241, 234, 0.9), rgba(245, 241, 234, 0.94)),
+    url("assets/blueprint-bg-light.png") center / cover;
+}
+
+.auth-card {
+  display: grid;
+  width: min(440px, 100%);
+  padding: 38px;
+  border: 1px solid rgba(139, 21, 56, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 254, 251, 0.98);
+  box-shadow: 0 28px 80px rgba(65, 44, 36, 0.2);
+}
+
+.auth-logo {
+  width: 170px;
+  max-height: 72px;
+  margin-bottom: 24px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.auth-card h1 {
+  margin: 5px 0 8px;
+  color: var(--bordeaux);
+  font-family: Museo, Georgia, serif;
+  font-size: 2rem;
+  line-height: 1.08;
+}
+
+.auth-card > p,
+.auth-card > small {
+  color: var(--muted);
+}
+
+.auth-card > p {
+  margin: 0 0 24px;
+}
+
+.auth-card > small {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.auth-form {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-form label {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(139, 21, 56, 0.2);
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+}
+
+.auth-form input:focus {
+  border-color: var(--bordeaux);
+  box-shadow: 0 0 0 4px rgba(139, 21, 56, 0.08);
+}
+
+.auth-form .button {
+  min-height: 48px;
+  margin-top: 12px;
+}
+
+.auth-error {
+  margin: 4px 0 0;
+  color: #a01f2f;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 button,
 input,
 textarea,
@@ -1946,6 +2047,7 @@ textarea.paper-input,
   }
 
   .blueprint-bg,
+  .auth-gate,
   .app-header,
   .app-nav,
   .settings-card,

@@ -9,6 +9,11 @@
     clients: "altimum-invoice-clients-v1",
     invoices: "altimum-invoice-history-v1"
   };
+  const AUTH_SESSION_KEY = "altimum-temporary-auth-v1";
+  const TEMPORARY_CREDENTIALS = {
+    username: "Alma",
+    passwordDigest: "112850868fd082f1e47c9920e8f037b92047fbc9ad91eaf38afd5c583a40f89e"
+  };
 
   const euro = new Intl.NumberFormat("fr-BE", {
     style: "currency",
@@ -62,6 +67,12 @@
     saveInvoice: $("#saveInvoice"),
     emailInvoice: $("#emailInvoice"),
     printInvoice: $("#printInvoice"),
+    logoutButton: $("#logoutButton"),
+    authGate: $("#authGate"),
+    loginForm: $("#loginForm"),
+    loginUsername: $("#loginUsername"),
+    loginPassword: $("#loginPassword"),
+    loginError: $("#loginError"),
     invoice: $("#invoice"),
     invoiceShell: $(".invoice-shell"),
     invoiceSummary: $(".invoice-summary"),
@@ -295,6 +306,54 @@
     statusTimer = window.setTimeout(() => {
       elements.saveStatus.textContent = "Sauvegarde automatique";
     }, duration);
+  }
+
+  function setTemporaryAuthentication(isAuthenticated) {
+    document.documentElement.classList.toggle("auth-locked", !isAuthenticated);
+    document.documentElement.classList.toggle("auth-granted", isAuthenticated);
+    elements.authGate.hidden = isAuthenticated;
+    if (!isAuthenticated) {
+      window.setTimeout(() => elements.loginUsername.focus(), 0);
+    }
+  }
+
+  async function digestTemporaryPassword(password) {
+    const bytes = new TextEncoder().encode(password);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  function initializeTemporaryAuthentication() {
+    const isAuthenticated = sessionStorage.getItem(AUTH_SESSION_KEY) === "granted";
+    setTemporaryAuthentication(isAuthenticated);
+
+    elements.loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const usernameMatches = elements.loginUsername.value === TEMPORARY_CREDENTIALS.username;
+      const passwordDigest = await digestTemporaryPassword(elements.loginPassword.value);
+      const passwordMatches = passwordDigest === TEMPORARY_CREDENTIALS.passwordDigest;
+      if (!usernameMatches || !passwordMatches) {
+        elements.loginError.hidden = false;
+        elements.loginPassword.value = "";
+        elements.loginPassword.focus();
+        return;
+      }
+      sessionStorage.setItem(AUTH_SESSION_KEY, "granted");
+      elements.loginError.hidden = true;
+      elements.loginPassword.value = "";
+      setTemporaryAuthentication(true);
+      announce("Connexion réussie");
+    });
+
+    elements.loginForm.addEventListener("input", () => {
+      elements.loginError.hidden = true;
+    });
+
+    elements.logoutButton.addEventListener("click", () => {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      elements.loginForm.reset();
+      setTemporaryAuthentication(false);
+    });
   }
 
   function autoGrowTextarea(textarea) {
@@ -1691,6 +1750,7 @@
 
   window.addEventListener("resize", schedulePagination);
 
+  initializeTemporaryAuthentication();
   refreshClientInterface();
   refreshHistoryInterface();
   renderStats();

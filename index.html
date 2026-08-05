@@ -1,15 +1,33 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" class="auth-locked">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#8b1538">
   <meta name="description" content="Outil de facturation Altimum Projects & Solutions">
   <title>Facturation — Altimum</title>
-  <link rel="stylesheet" href="styles.css?v=20260805-1">
-  <script src="app.js?v=20260805-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260805-2">
+  <script src="app.js?v=20260805-2" defer></script>
 </head>
 <body>
+  <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
+    <div class="auth-card">
+      <img src="assets/logo-altimum.png" alt="Altimum Projects & Solutions" class="auth-logo">
+      <span class="eyebrow">Espace privé</span>
+      <h1 id="authTitle">Accès à la facturation</h1>
+      <p>Connectez-vous pour gérer les factures, les offres et les clients.</p>
+      <form class="auth-form" id="loginForm">
+        <label for="loginUsername">Identifiant</label>
+        <input id="loginUsername" name="username" autocomplete="username" required>
+        <label for="loginPassword">Mot de passe</label>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+        <p class="auth-error" id="loginError" role="alert" hidden>Identifiant ou mot de passe incorrect.</p>
+        <button class="button button--primary" type="submit">Se connecter</button>
+      </form>
+      <small>Accès temporaire pour la phase de test.</small>
+    </div>
+  </section>
+
   <div class="blueprint-bg" aria-hidden="true"></div>
 
   <header class="app-header">
@@ -24,6 +42,7 @@
         <button class="button button--ghost" type="button" id="newInvoice">Nouvelle</button>
         <button class="button button--ghost" type="button" id="saveInvoice">Enregistrer</button>
         <button class="button button--ghost button--mail" type="button" id="emailInvoice">Envoyer par email</button>
+        <button class="button button--ghost" type="button" id="logoutButton">Se déconnecter</button>
         <button class="button button--primary" type="button" id="printInvoice">
           Imprimer / PDF
         </button>
